@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+#
 class ScaleDotProductAttention(nn.Module):
     def __init__(self):
         super(ScaleDotProductAttention, self).__init__()
