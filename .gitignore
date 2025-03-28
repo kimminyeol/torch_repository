@@ -3,3 +3,6 @@
 *.tsv
 *.csv
 *.pt
+*.pdf
+*.txt
+**/__pycache__/
