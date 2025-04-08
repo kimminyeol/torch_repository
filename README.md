@@ -17,7 +17,7 @@ This repository contains implementations of key deep learning models and PyTorch
 
 ## 📝 Blog Post
 Check out our blog for detailed explanations and insights:
-[**Kim's Blog**](https://your-blog-link.com)
+[**Kim's Blog**](https://hongminjaeyoel.tistory.com/)
 
 ## 🌟 Features
 ✅ Clean and modular code for easy understanding.  
