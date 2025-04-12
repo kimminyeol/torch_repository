@@ -1,5 +1,13 @@
 from typing import List, Optional, Union, Literal
 
+'''
+1단계 
+Document -> chunk
+'''
+
+'''
+토큰 단위로 입력을 받아-> seperator 기준으로 나눔 -> 
+'''
 class SeparatorSplitter:
     def __init__(
         self,
@@ -15,14 +23,13 @@ class SeparatorSplitter:
         self._chunk_overlap = chunk_overlap
         self._length_function = length_function
 
-# 
+#   전체 chunking 함수 
     def split_tokens(self, tokens: List[int]) -> List[List[int]]:
         splits = self._split_tokens_with_separators(tokens)
         return self._merge_splits(splits)
 
 # sperator 리스트를 기준으로 토큰을 나눈다. 
 # 토큰을 받고 sperators에 있는 토큰을 기준으로 나눈다.
-
     def _split_tokens_with_separators(self, tokens: List[int]) -> List[List[int]]:
         splits = []
         current_split = []
@@ -91,6 +98,7 @@ class SeparatorSplitter:
             if len(new_chunk) > self._chunk_overlap:  # 只有当 chunk 长度大于 overlap 时才添加
                 result.append(new_chunk)
         return result
+
 
 # 청크 오버랩을 강제하는 함수
     def _enforce_overlap(self, chunks: List[List[int]]) -> List[List[int]]:

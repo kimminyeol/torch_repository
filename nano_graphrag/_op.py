@@ -139,7 +139,10 @@ def get_chunks(new_docs, chunk_func=chunking_by_token_size, **chunk_func_params)
 
     return inserting_chunks
 
+'''
 # 청크 단위로 나누어진 문서에서 엔티티와 관계를 추출하였는데, 길이가 너무 길었을 경우, 요약을 수행함 
+-> if entity and relaltion's length become too long , LLM make summarization and return summary
+'''
 async def _handle_entity_relation_summary(
     entity_or_relation_name: str,
     description: str,
@@ -166,7 +169,17 @@ async def _handle_entity_relation_summary(
     summary = await use_llm_func(use_prompt, max_tokens=summary_max_tokens)
     return summary
 
+'''
 # LLM 응답을 받아서 엔티티를 추출하는 함수
+input: ("entity"<|>"Apple Inc."<|>"organization"<|>"Apple Inc. is a technology company known for its iPhone and Mac products.")
+{
+  "entity_name": "ALEX",
+  "entity_type": "PERSON",
+  "description": "Alex는 실험 프로젝트에 참여한 주요 인물이다.",
+  "source_id": "chunk_00123"
+}
+'''
+
 async def _handle_single_entity_extraction(
     record_attributes: list[str],
     chunk_key: str,
@@ -211,7 +224,15 @@ async def _handle_single_relationship_extraction(
         source_id=edge_source_id,
     )
 
+
 # 노드 병합: 이미 존재하는 노드가 있다면, 
+'''
+# 노드 병합: 이미 존재하는 노드가 있다면, 
+같은 entity_name을 가진 엔티티가 여러 청크에 걸쳐 나올 수 있기 대문에 
+-> 엔티티 유형, 설명, 출처 청크 id를 합쳐서 하나의 노드로 정리하는 역할
+- entity_type: 가장 많이 등장한 것으로
+- 중복 제거, 정렬 후 정리 : LLM으로 너무 길면 요약
+'''
 async def _merge_nodes_then_upsert(
     entity_name: str,
     nodes_data: list[dict],
@@ -257,9 +278,20 @@ async def _merge_nodes_then_upsert(
     )
     node_data["entity_name"] = entity_name
     return node_data
-
+'''
 # 엣지 병합: 이미 존재하는 엣지가 있다면, wieght, description, source_id를 병합함
 # 요약 후 삽입 
+두 엔티티 간 관계가 여러 청크에서 등장하면 , 관계 설명, 가중치, 출처를 병합하여 그래프에 넣음 -> 하나의 엣지로 정리 
+await knwoledge_graph_inst.upsert_edge(
+    "APPLE INC.", "GOOGLE LLC",
+    edge_data={
+        "weight": 10,
+        "description": "<요약된 설명>",
+        "source_id": "chunk_001<SEP>chunk_003<SEP>chunk_004",
+        "order": 1
+    }
+)
+'''
 async def _merge_edges_then_upsert(
     src_id: str,
     tgt_id: str,
@@ -312,7 +344,12 @@ async def _merge_edges_then_upsert(
 
 
 # -----------------
-
+'''
+1. 각 청크의 텍스를 LLM을 활용하여 엔티티 or 관계인지 판단해서 분류하여 출력함 
+2. 엔티티 병합 후 그래프 노드로 저장 
+3. 관계 병합 후 그래프 엣지로 저장 
+4. 엔티티 벡터 저장소에도 삽입함 
+'''
 # 청크로부터 엔티티, 관계 추출하여 그래프에 삽입
 async def extract_entities(
     chunks: dict[str, TextChunkSchema],
@@ -454,8 +491,17 @@ async def extract_entities(
 
 
 '''
-여기서부터 community report 관련된 부분
+------------------------------여기서부터 community report 관련된 부분
+'''
 
+'''
+하나의 커뮤니티가 너무 커서 LLM의 토큰 제한 초과할 경우 서브 커뮤니티들의 리포트를 기반으로 간략화된 설명생성
+1. all_sub_communites 로딩 
+2. 발생 빈도를 기준으로 내림차순 정렬
+3. 토큰 수 제한에 따라 서브 커뮤니티 리스트 자르기
+4. csv로 서브커뮤니티 요약 정보 구성
+5. 포함된 노드와 엣지 추출
+6. 서브 커뮤니티, 토큰 수, 포함 노드 및 엣지 
 '''
 # 상우 ㅣ커뮤니티의 토큰 수가 너무 클 경우, 서브 커뮤니티들을 리스트업해서 보고서 형식으로 요약 
 # 이미 생성된 리포트를 기반으로 새로운 요약 텍스ㅡ 생성 
@@ -508,6 +554,7 @@ def _pack_single_community_by_sub_communities(
 - 엣지 정보
 -> 토큰 수 초과시 truncate_list_by_token_size를 통해서 최대 토큰 수에 맞게 조정
 - 서브커뮤니티 기반 설명이 필요할 경우, _pack_single_community_by_sub_communities를 통해서 서브 커뮤니티를 기반으로 요약
+- 노드, 엣지 정보를 분석해서 markdown형식으로 정리하여 LLM에 주기 위함!!1
 '''
 async def _pack_single_community_describe(
     knwoledge_graph_inst: BaseGraphStorage,
@@ -639,7 +686,11 @@ def _community_report_json_to_str(parsed_output: dict) -> str:
     )
     return f"# {title}\n\n{summary}\n\n{report_sections}"
 
+'''
 # 그래프 내 각 커뮤니티의 구조를 기반으로 LLM 리포트 생성
+# 엔티티, 관계를 그래프에 삽입하고 난 후 -> clustering을 통해 노드들을 커뮤니티로 그룹화 -> 커뮤니티에 대한 요약 보고서 생성
+
+'''
 async def generate_community_report(
     community_report_kv: BaseKVStorage[CommunitySchema],
     knwoledge_graph_inst: BaseGraphStorage,
@@ -730,6 +781,7 @@ async def generate_community_report(
 # 여기서부터 노드 기반 검색 
 '''
 # query 결과로 검색된 엔티티 노드를 기반으로 가장 연관된 커뮤니티 보고서를 선택함 
+=> 검색된 엔티티 노드가 속한 커뮤니티들 중 가장 관련 있는 커뮤니티 찾은 후 -> 커뮤니티 리포트를 LLM에 입력 
 
 1. 각 노드의 clusters 필드를 파싱해 관련 커뮤니티 id 수집
 2. 커뮤니티별 출현 빈도와 rating 기준으로 정렬 
@@ -849,7 +901,7 @@ async def _find_most_related_text_unit_from_entities(
     return all_text_units
 
 '''
-검색된 엔티티로부터 직접 연결된 관계를 수집하여 문맥으로 활용 
+검색된 엔티티로부터 직접 연결된 관계를 수집하여 문맥으로 활용 -> 질의와 관련된 엔티티 간의 관계를 context로 활용하기 위해 수집 
 - 각 노드에 대해 1-hop 엣지 리스트 가져옴 
 - 양방향 엣지 중복 방지
 - 각 엣지에 대해, get_edge를 통해 엣지 데이터 가져옴, edge_degree를 통해 degree 가져옴

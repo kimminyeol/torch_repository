@@ -15,6 +15,10 @@ from nano_graphrag.entity_extraction.module import TypedEntityRelationshipExtrac
 from nano_graphrag._op import _merge_edges_then_upsert, _merge_nodes_then_upsert
 
 
+
+'''
+LLM을 사용해 청크로부터 데이터셋(엔티티+관계)를 생성하여 .pkl 파일로 저장 -> 현 모델에서 사용하는 방법
+'''
 async def generate_dataset(
     chunks: dict[str, TextChunkSchema],
     filepath: str,
@@ -78,6 +82,10 @@ async def generate_dataset(
     return filtered_examples
 
 
+# 결과를 바로 graphrag 내부 knowledge graph에 삽입함
+'''
+
+'''
 async def extract_entities_dspy(
     chunks: dict[str, TextChunkSchema],
     knwoledge_graph_inst: BaseGraphStorage,
@@ -94,6 +102,7 @@ async def extract_entities_dspy(
     already_entities = 0
     already_relations = 0
 
+    # 청크를 순회하며 엔티티와 관계를 추출하는 함수
     async def _process_single_content(chunk_key_dp: tuple[str, TextChunkSchema]):
         nonlocal already_processed, already_entities, already_relations
         chunk_key = chunk_key_dp[0]
@@ -132,6 +141,7 @@ async def extract_entities_dspy(
         )
         return dict(maybe_nodes), dict(maybe_edges)
 
+    # 전체 청크 결과를 병합하는 함수 
     results = await asyncio.gather(
         *[_process_single_content(c) for c in ordered_chunks]
     )
@@ -143,12 +153,14 @@ async def extract_entities_dspy(
             maybe_nodes[k].extend(v)
         for k, v in m_edges.items():
             maybe_edges[k].extend(v)
+    # 엔티티를 삽입한다.
     all_entities_data = await asyncio.gather(
         *[
             _merge_nodes_then_upsert(k, v, knwoledge_graph_inst, global_config)
             for k, v in maybe_nodes.items()
         ]
     )
+    # 엣지 삽입 
     await asyncio.gather(
         *[
             _merge_edges_then_upsert(k[0], k[1], v, knwoledge_graph_inst, global_config)

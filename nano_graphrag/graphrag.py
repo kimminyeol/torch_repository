@@ -221,13 +221,16 @@ class GraphRAG:
         loop = always_get_an_event_loop()
         return loop.run_until_complete(self.ainsert(string_or_strings))
 
+    # 검색 방식 정해서 방식에 따라 검색하는 파이프라인
     def query(self, query: str, param: QueryParam = QueryParam()):
         loop = always_get_an_event_loop()
         return loop.run_until_complete(self.aquery(query, param))
 
     '''
-    쿼리를 비동기적으로 실행하는 함수
-    rag에 사용될 방법
+    # local, global, naive 에 따라 다른 검색 함수가 호출된다. 
+    - local: 엔티티 추출-> 커뮤니티 report 조회 후 응답
+    - global : 전체 커뮤니티 중 유사 내용 추출
+    - naive : 단순 유사 청크 검색 
     '''
     async def aquery(self, query: str, param: QueryParam = QueryParam()):
         if param.mode == "local" and not self.enable_local:
@@ -267,6 +270,16 @@ class GraphRAG:
         await self._query_done()
         return response
 
+
+
+    '''
+    1. get_chunk : 문서 청킹 
+    2. entity_extraction_func : entity, relation 추출
+    3. chunk_entity_relation_graph : 노드, 엣지 upsert -> 그래프 저장
+    4. self.chunk_entity_relation_graph.clustering( -> 그래프 클러스터링 
+    5. generate_community_report -> 커뮤니티 리포트 생성 후 basekvstorage에 저장
+    6. 
+    '''
     async def ainsert(self, string_or_strings):
         await self._insert_start()
         try:
