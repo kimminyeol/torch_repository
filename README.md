@@ -13,10 +13,12 @@ This repository contains implementations of key deep learning models and PyTorch
 - ✅ **PyTorch Basics**
 - ✅ **ResNet (Residual Networks)**
 - ✅ **Transformer**
+- ✅ **GraphRAG**
+
 
 
 ## 📝 Blog Post
-Check out our blog for detailed explanations and insights:
+Check out our blog for detailed explanations and insights(in preparation):
 [**Kim's Blog**](https://your-blog-link.com)
 
 ## 🌟 Features
